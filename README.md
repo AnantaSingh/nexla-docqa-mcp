@@ -205,7 +205,11 @@ pytest -q
 python scripts/smoke_test.py
 #    expected last line: RESULT: ALL PASSED
 
-# 3. Interactive — open the server in MCP Inspector and click through the tools
+# 3. Ask a question straight from the terminal (no MCP client needed)
+python scripts/ask.py "What was Costco's total revenue in fiscal 2022?"
+python scripts/ask.py "What was net revenue in the EU in 2020?" --document PM
+
+# 4. Interactive — open the server in MCP Inspector and click through the tools
 npx @modelcontextprotocol/inspector python -m docqa.server
 ```
 
