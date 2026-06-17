@@ -175,6 +175,18 @@ here automatically. Inputs: `document` (required), optional `term`.
 ```bash
 npx @modelcontextprotocol/inspector python -m docqa.server
 ```
+This prints a `localhost:6274?...` URL — open it and click **Connect**. Then:
+
+1. Click the **Tools** tab at the top (not *Resources*/*Prompts* — this server exposes **tools only**, so those tabs are intentionally empty).
+2. Click **List Tools** → you'll see all four: `query_documents`, `list_documents`, `search_chunks`, `document_stats`.
+3. Click **`query_documents`**; a form appears with `question`, `top_k`, `document`.
+4. In **`question`** type e.g. `What was Costco's total revenue in fiscal 2022?` (leave `top_k`/`document` blank) and click **Run Tool**.
+5. The result panel shows the JSON: `answer`, `answer_found: true`, and `citations` (Costco, p.40, `table`). It takes a few seconds — it's calling OpenAI (embeddings) + Claude (synthesis).
+
+Other quick checks in the same UI:
+- `list_documents` → Run (no inputs) → all 5 reports.
+- `query_documents` with `question` = "How many stores does the company open in Shanghai?", `document` = `MCD` → `answer_found: false` (abstains, no hallucination).
+- `document_stats` with `document` = `MCD`, `term` = `franchised margins` → `page_count: 98`, `term_count: 5`.
 
 **Claude Desktop** — add to `claude_desktop_config.json`:
 ```json
