@@ -237,10 +237,10 @@ Reproduce with `python -m eval.run_eval` → full table in [`eval/results.md`](e
 | Question type | N | Accuracy (correct) | Incl. partial |
 |---|---|---|---|
 | text-only | 10 | 70% | 80% |
-| multimodal-t (tables) | 21 | 71% | 81% |
+| multimodal-t (tables) | 21 | 76% | 81% |
 | multimodal-f (figures) | 12 | 75% | 83% |
-| meta-data | 7 | 71% | 100% |
-| **answerable total** | **50** | **72%** | **84%** |
+| meta-data | 7 | 57% | 86% |
+| **answerable total** | **50** | **72%** | **82%** |
 
 | Robustness metric | Result |
 |---|---|
@@ -251,14 +251,26 @@ Reproduce with `python -m eval.run_eval` → full table in [`eval/results.md`](e
 - **Abstention is perfect (5/5)** — the property that matters most — and it stays perfect *with the
   vision fallback enabled*, i.e. the system reads page images when needed but still refuses to
   invent answers that aren't there.
-- **Metadata jumped from 29%→71% (C) / 57%→100% (C+P)** after adding a deterministic `document_stats`
-  path (page counts, term frequencies). Those are computations over the whole document, so they're
-  answered by counting, not by RAG guessing.
-- **The reported numbers are a slight *under*-estimate** because the LLM judge is occasionally
-  over-strict on units. Example: for Costco's U.S. revenue the system answered **"$165,294 million"**
-  (correct — the statement is "in millions"), but the gold answer omits the unit ("$165,294") and the
-  judge marked it INCORRECT, reasoning about a non-existent 1000× discrepancy. A handful of
-  "INCORRECT" verdicts are this kind of judge artifact, not retrieval failures.
+- **Run-to-run variance is real.** The LLM judge (and vision fallback) aren't perfectly
+  deterministic, so per-category numbers wobble by ~±1 question between runs (e.g. metadata has
+  swung 57%↔71%); the **answerable strict total is stable at 72%**. Treat category splits as
+  indicative, not exact.
+- **Metadata went from 29%→~60-70%** after adding a deterministic `document_stats` path (page
+  counts, term frequencies) — computations over the whole document, answered by counting rather
+  than RAG guessing.
+- **The numbers are a slight *under*-estimate** because the LLM judge is occasionally over-strict on
+  units. Example: for Costco's U.S. revenue the system answered **"$165,294 million"** (correct — the
+  statement is "in millions"), but the gold omits the unit ("$165,294") and the judge marked it
+  INCORRECT over a non-existent 1000× discrepancy. A few "INCORRECT" verdicts are this judge artifact.
+
+### Retrieval k is measured, not guessed
+
+`eval/sweep_k.py` runs a **free, no-LLM recall@k sweep** (does the answer figure land in the top-k?)
+to choose the retrieval sizes. Finding: a **tighter recall stage (vector/BM25 top-20) beats top-30/50**
+— recall@8 of **92% vs 88%** — because a cleaner candidate pool lets the cross-encoder rank the answer
+chunk higher, *and* it's cheaper. Recall plateaus at 96% by top-12; top-8 is the cost/recall knee.
+End-to-end accuracy was flat across k=20 vs k=30 (the generator is robust to the small recall
+difference), so k=20 was adopted as the equal-accuracy, lower-cost choice.
 
 ---
 

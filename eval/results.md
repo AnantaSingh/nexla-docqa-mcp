@@ -7,10 +7,10 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | Type | N | Correct | Partial | Incorrect | Accuracy (C) | C+P |
 |---|---|---|---|---|---|---|
 | text-only | 10 | 7 | 1 | 2 | 70% | 80% |
-| multimodal-t | 21 | 15 | 2 | 4 | 71% | 81% |
+| multimodal-t | 21 | 16 | 1 | 4 | 76% | 81% |
 | multimodal-f | 12 | 9 | 1 | 2 | 75% | 83% |
-| meta-data | 7 | 5 | 2 | 0 | 71% | 100% |
-| **answerable total** | 50 | 36 | 6 | 8 | **72%** | **84%** |
+| meta-data | 7 | 4 | 2 | 1 | 57% | 86% |
+| **answerable total** | 50 | 36 | 5 | 9 | **72%** | **82%** |
 
 ## Abstention on unanswerable questions (anti-hallucination)
 
@@ -55,7 +55,7 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | unanswerable | McDonald's | ABSTAINED | — | How many stores does the company open in Shanghai? |
 | text-only | Philip | INCORRECT | ✓ | On which page does the report provide Mine Safety Disclosures? |
 | text-only | Philip | CORRECT | ✓ | Did PMI have higher net revenues in the European Union in 2020 compared to 2018? |
-| multimodal-t | Philip | PARTIAL | ✓ | How much of the change in PMI's Net Revenues was attributable to currency effects? |
+| multimodal-t | Philip | CORRECT | ✓ | How much of the change in PMI's Net Revenues was attributable to currency effects? |
 | multimodal-t | Philip | CORRECT | ✓ | What was PMI's net revenue from combustible products in the European Union for 2020? |
 | multimodal-t | Philip | CORRECT | ✓ | What was the shipment volume of Marlboro cigarettes in 2020 according to PMI's report? |
 | multimodal-t | Philip | CORRECT | ✓ | Which brand in PMI experienced the highest percentage increase in shipment volume from 2019 to 2020? |
@@ -63,7 +63,7 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | multimodal-t | Philip | CORRECT | ✓ | What was the total provision for PMI's income taxes in 2020? |
 | multimodal-f | Philip | CORRECT | ✓ | What product category generated the highest net revenue for the company in 2020? |
 | multimodal-f | Philip | CORRECT | ✓ | How did PMI's cumulative total shareholder return compare to the S&P 500 Index at the end of the 2020? |
-| meta-data | Philip | CORRECT | ✗ | What is the most common abbreviation in the document? |
+| meta-data | Philip | INCORRECT | ✗ | What is the most common abbreviation in the document? |
 | unanswerable | Philip | ABSTAINED | — | On which page does are the photos of the company's board members displayed? |
 | text-only | Toyota | INCORRECT | ✓ | What was the year-on-year percentage change in Toyota's operating income for fiscal 2021? |
 | text-only | Toyota | CORRECT | ✓ | What is the energy efficiency target for Toyota's compact SUV in the bZ series? |
