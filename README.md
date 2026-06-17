@@ -96,8 +96,8 @@ or chunking settings change; use `--force` to rebuild.
 
 ```
 query
-  ├─ dense vector search (OpenAI embeddings, cosine)   → top 30   ← semantics / paraphrase
-  └─ BM25 lexical (rank_bm25, numeric-aware tokenizer) → top 30   ← exact figures / names
+  ├─ dense vector search (OpenAI embeddings, cosine)   → top 20   ← semantics / paraphrase
+  └─ BM25 lexical (rank_bm25, numeric-aware tokenizer) → top 20   ← exact figures / names
         └─ Reciprocal Rank Fusion (k=60)               → fused candidate pool
               └─ cross-encoder rerank (ms-marco-MiniLM, ONNX) → top 8   ← precision
                     └─ Claude grounded synthesis (temp 0, cite-or-abstain)
@@ -107,8 +107,8 @@ query
   the exact *number* ("226,954") or proper noun. The numeric-aware tokenizer keeps figures like
   `222,730` intact so they're matchable. Reciprocal Rank Fusion combines the two ranked lists
   without having to reconcile their incompatible score scales.
-- **Recall first, then precision.** Each arm casts a wide net (top-30); the cross-encoder then
-  reranks the fused pool down to the 8 passages the LLM actually sees.
+- **Recall first, then precision.** Each arm casts a focused net (top-20 — measured to beat 30/50 on recall@8); the cross-encoder
+  then reranks the fused pool down to the 8 passages the LLM actually sees.
 - **Reranking is on by default** (it's the single biggest precision lever); set
   `RERANK_ENABLED=false` to disable.
 - **Never drop the lexical champion.** The cross-encoder occasionally buries a chunk that

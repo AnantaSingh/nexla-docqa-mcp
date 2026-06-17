@@ -35,8 +35,12 @@ class Settings(BaseSettings):
     local_embed_model: str = "BAAI/bge-small-en-v1.5"
 
     # --- Retrieval knobs ---
-    vector_top_k: int = 30
-    bm25_top_k: int = 30
+    # recall-stage k = 20 (not 30/50): a tighter pool measured *higher* recall@8 (92% vs 88%) on
+    # the gold set — a cleaner candidate pool lets the cross-encoder rank the answer chunk higher.
+    # final top_n = 8 sits at the cost/recall knee (top-12 reaches the 96% plateau at +50% tokens).
+    # See eval/sweep_k.py for the recall@k curve behind these.
+    vector_top_k: int = 20
+    bm25_top_k: int = 20
     rerank_top_n: int = 8
     rerank_enabled: bool = True
     rrf_k: int = 60
