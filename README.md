@@ -176,6 +176,23 @@ Restart Claude Desktop; the four tools appear under the server. (Ingest once fir
 
 ---
 
+## Verify it works
+
+Three levels, fastest first:
+
+```bash
+# 1. Offline unit tests (no API keys needed) — chunking, fusion, abstention, tool schemas
+pytest -q
+
+# 2. One-command end-to-end smoke test (needs index + keys): launches the server over stdio
+#    and checks every tool, a grounded answer with citation, exact stats, and correct abstention
+python scripts/smoke_test.py
+#    expected last line: RESULT: ALL PASSED
+
+# 3. Interactive — open the server in MCP Inspector and click through the tools
+npx @modelcontextprotocol/inspector python -m docqa.server
+```
+
 ## Accuracy & robustness
 
 Concrete decisions that defend answer quality — most were driven by **empirically inspecting the
