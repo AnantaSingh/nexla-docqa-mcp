@@ -129,27 +129,43 @@ The core tool. Returns a grounded answer with source citations.
 | Field | Type | Notes |
 |---|---|---|
 | `question` | string (required) | Natural-language question. |
-| `top_k` | int (default 8) | Passages used to ground the answer. |
+| `top_k` | int (default 8) | Passages used to ground the answer (clamped to ≥1). |
 | `document` | string (optional) | Scope to one report by ticker (`COST`), company (`Costco`), or file. |
 
 **Returns:** `{ answer, answer_found, citations[], retrieved_count, document_filter }`, where each
 citation is `{ label, company, ticker, year, file_name, page, section, chunk_type, snippet }`.
 `answer_found=false` means the documents didn't support an answer (no guessing).
 
+**Example queries:**
+- `query_documents(question="What was Costco's total revenue in fiscal 2022?")`
+- `query_documents(question="Compare Costco's and McDonald's total revenue.")` *(multi-document)*
+- `query_documents(question="What was net revenue in the European Union in 2020?", document="PM")` *(scoped)*
+→ `{ "answer": "Costco's total revenue in fiscal 2022 was $226,954 million.", "answer_found": true, "citations": [{ "company": "Costco Wholesale Corporation", "year": 2022, "page": 40, "chunk_type": "table", ... }] }`
+
 ### `list_documents()`
 Returns the indexed corpus: `[{ company, ticker, year, file_name, pages, num_chunks }]`.
-Lets an agent discover what it can ask about.
+Lets an agent discover what it can ask about. **No inputs.**
+
+**Example query:** `list_documents()`
+→ `[{ "company": "Costco Wholesale Corporation", "ticker": "COST", "year": 2022, "pages": 76, "num_chunks": 117 }, … ]`
 
 ### `search_chunks(query, k=10, document=None)`
 Raw hybrid-retrieval hits (no LLM) with `rerank/vector/bm25` scores and snippets — for
-transparency and debugging retrieval independently of synthesis.
+transparency and debugging retrieval independently of synthesis. Inputs: `query` (required),
+`k` (default 10), optional `document` scope.
+
+**Example query:** `search_chunks(query="warehouses operated worldwide", document="COST", k=5)`
+→ `[{ "id": "COST-p45-0", "page": 45, "chunk_type": "text", "rerank_score": 5.9, "snippet": "…" }, … ]`
 
 ### `document_stats(document, term=None)`
 Exact, **computed** statistics about one report — `page_count`, `word_count`, and, if `term` is
 given, its `term_count` and the `term_pages` it appears on. This is deliberately *not* RAG: it
 answers the "how many pages / how many times is X mentioned" questions that retrieval handles
 poorly, by counting over the document's full text. `query_documents` also routes those phrasings
-here automatically.
+here automatically. Inputs: `document` (required), optional `term`.
+
+**Example query:** `document_stats(document="McDonald's", term="franchised margins")`
+→ `{ "company": "McDonald's Corporation", "page_count": 98, "term_count": 5, "term_pages": [16, 20, 29] }`
 
 ---
 
