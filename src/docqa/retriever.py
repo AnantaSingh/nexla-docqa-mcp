@@ -156,7 +156,9 @@ class Retriever:
     ) -> list[RetrievedChunk]:
         if not query or not query.strip():
             return []
-        top_n = top_n or self.settings.rerank_top_n
+        # clamp to >=1: 0 must not fall through to the default, and a negative value must not
+        # become a negative slice (which would silently return the wrong chunks)
+        top_n = self.settings.rerank_top_n if top_n is None else max(1, top_n)
         with self._lock:
             return self._retrieve_locked(query, top_n, where)
 
