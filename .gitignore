@@ -1,0 +1,25 @@
+# Secrets
+.env
+
+# Index / caches
+.chroma/
+bm25_index.pkl
+manifest.json
+.fastembed_cache/
+
+# transient eval log (results.md / results.json are kept)
+eval/eval_run.log
+**/__pycache__/
+*.pyc
+
+# venv / tooling
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+.pytest_cache/
