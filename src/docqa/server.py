@@ -113,6 +113,43 @@ def search_chunks(query: str, k: int = 10, document: str | None = None) -> list[
     ]
 
 
+@mcp.tool()
+def document_stats(document: str, term: str | None = None) -> dict[str, Any]:
+    """Exact, computed statistics about one document (not retrieval — no guessing).
+
+    Handles the "structural" questions RAG is bad at: page counts and term frequencies.
+
+    Args:
+        document: Which report (ticker like "MCD", company "McDonald's", or file name).
+        term: Optional phrase to count; returns total occurrences and the pages it appears on.
+
+    Returns:
+        { company, ticker, year, file_name, page_count, word_count,
+          term?, term_count?, term_pages? }
+    """
+    from .doc_store import DocStore
+
+    try:
+        where = resolve_document_filter(document)
+    except ValueError as e:
+        return {"error": str(e)}
+    if where is None:
+        return {"error": "Specify a document (ticker, company, or file name)."}
+    store = DocStore(get_settings())
+    s = store.stats(where["file_name"], term=term)
+    out = {
+        "company": s.company,
+        "ticker": s.ticker,
+        "year": s.year,
+        "file_name": s.file_name,
+        "page_count": s.page_count,
+        "word_count": s.word_count,
+    }
+    if term:
+        out.update(term=s.term, term_count=s.term_count, term_pages=s.term_pages)
+    return out
+
+
 def main() -> None:
     mcp.run()
 

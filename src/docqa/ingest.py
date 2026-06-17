@@ -21,8 +21,9 @@ import time
 
 from .chunking import Chunk, chunk_document
 from .config import Settings, get_settings
+from .doc_store import build_doc_records, save_doc_records
 from .embeddings import build_embedder
-from .pdf_parser import parse_pdf
+from .pdf_parser import ParsedDocument, parse_pdf
 from .vector_store import VectorStore
 
 
@@ -57,7 +58,7 @@ def _unchanged(settings: Settings, manifest: dict) -> bool:
         prev = json.loads(settings.manifest_path.read_text())
     except Exception:
         return False
-    return prev == manifest and settings.chunks_path.exists()
+    return prev == manifest and settings.chunks_path.exists() and settings.documents_path.exists()
 
 
 def build_index(settings: Settings, force: bool = False) -> int:
@@ -73,8 +74,10 @@ def build_index(settings: Settings, force: bool = False) -> int:
 
     print(f"Parsing + chunking {len(pdfs)} document(s)...")
     all_chunks: list[Chunk] = []
+    parsed_docs: list[ParsedDocument] = []
     for pdf in pdfs:
         parsed = parse_pdf(pdf)
+        parsed_docs.append(parsed)
         chunks = chunk_document(
             parsed, settings.chunk_target_tokens, settings.chunk_overlap_tokens
         )
@@ -99,6 +102,7 @@ def build_index(settings: Settings, force: bool = False) -> int:
 
     records = [{"id": c.id, "text": c.text, **c.metadata()} for c in all_chunks]
     settings.chunks_path.write_text(json.dumps(records))
+    save_doc_records(settings, build_doc_records(parsed_docs))
     settings.manifest_path.write_text(json.dumps(manifest, indent=2))
 
     print(f"Done. Indexed {len(all_chunks)} chunks from {len(pdfs)} documents.")

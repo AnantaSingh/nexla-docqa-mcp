@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     chunk_target_tokens: int = 600
     chunk_overlap_tokens: int = 100
 
+    # --- Vision fallback: on a text-grounded abstention, retry by sending the top retrieved
+    # pages as images to Claude vision (recovers answers that live inside charts/figures). The
+    # strict abstain contract is preserved, so genuinely unanswerable questions still abstain.
+    vision_fallback_enabled: bool = True
+    vision_fallback_max_pages: int = 2
+
     # --- Paths (relative to repo root unless absolute) ---
     data_dir: str = "data"
     chroma_dir: str = ".chroma"
@@ -70,6 +76,11 @@ class Settings(BaseSettings):
     def chunks_path(self) -> Path:
         """All chunk records (text + metadata) persisted for BM25 rebuild + lookup."""
         return self.chroma_path / "chunks.json"
+
+    @property
+    def documents_path(self) -> Path:
+        """Per-document full page text + page count, for deterministic document stats."""
+        return self.chroma_path / "documents.json"
 
     @property
     def manifest_path(self) -> Path:

@@ -9,8 +9,13 @@ def _tools():
     return {t.name: t for t in asyncio.run(server.mcp.list_tools())}
 
 
-def test_three_tools_registered():
-    assert set(_tools()) == {"query_documents", "list_documents", "search_chunks"}
+def test_tools_registered():
+    assert set(_tools()) == {
+        "query_documents",
+        "list_documents",
+        "search_chunks",
+        "document_stats",
+    }
 
 
 def test_query_documents_schema():

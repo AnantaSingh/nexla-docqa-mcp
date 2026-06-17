@@ -71,7 +71,7 @@ or chunking settings change; use `--force` to rebuild.
                          ┌──────────────────────────────  QUERY TIME  ───────────────────────────────┐
   MCP client  ──stdio──► server.py  ──►  qa_engine.py  ──►  retriever.py  ──►  llm.py (Claude)
    (Claude /              FastMCP          orchestrate        hybrid + rerank     grounded / abstain
-    Inspector)            3 tools          + citations        (see below)         forced tool-use JSON
+    Inspector)            4 tools          + citations        (see below)         forced tool-use JSON
                          └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,7 +86,7 @@ or chunking settings change; use `--force` to rebuild.
 | `retriever.py` | Hybrid dense + BM25 retrieval, RRF fusion, cross-encoder rerank, doc filtering. |
 | `llm.py` | Claude answer synthesis with a strict grounded/abstain contract (forced tool-use). |
 | `qa_engine.py` | Orchestration: retrieve → ground → answer, building **faithful** citations. |
-| `server.py` | FastMCP server exposing the three tools over stdio. |
+| `server.py` | FastMCP server exposing the four tools over stdio. |
 | `ingest.py` | CLI: parse → chunk → embed → persist (idempotent via content hashes). |
 | `eval/run_eval.py` | Accuracy harness against the gold `_qa.jsonl` (LLM-as-judge). |
 
@@ -111,6 +111,13 @@ query
   reranks the fused pool down to the 8 passages the LLM actually sees.
 - **Reranking is on by default** (it's the single biggest precision lever); set
   `RERANK_ENABLED=false` to disable.
+- **Never drop the lexical champion.** The cross-encoder occasionally buries a chunk that
+  *literally contains* the queried entity/figure (e.g. a geographic-segment table holding
+  "United States … Total revenue $165,294"). If the top BM25 hit falls out of the top-8, it's
+  appended so the evidence still reaches the LLM.
+- **Vision fallback (on by default).** If the text-grounded answer abstains, the server renders the
+  top retrieved pages to images and retries with Claude vision — recovering answers that live inside
+  charts/figures. The strict abstain contract is preserved, so unanswerable questions still abstain.
 
 ---
 
@@ -137,6 +144,13 @@ Lets an agent discover what it can ask about.
 Raw hybrid-retrieval hits (no LLM) with `rerank/vector/bm25` scores and snippets — for
 transparency and debugging retrieval independently of synthesis.
 
+### `document_stats(document, term=None)`
+Exact, **computed** statistics about one report — `page_count`, `word_count`, and, if `term` is
+given, its `term_count` and the `term_pages` it appears on. This is deliberately *not* RAG: it
+answers the "how many pages / how many times is X mentioned" questions that retrieval handles
+poorly, by counting over the document's full text. `query_documents` also routes those phrasings
+here automatically.
+
 ---
 
 ## Connecting an MCP client
@@ -158,7 +172,7 @@ npx @modelcontextprotocol/inspector python -m docqa.server
   }
 }
 ```
-Restart Claude Desktop; the three tools appear under the server. (Ingest once first.)
+Restart Claude Desktop; the four tools appear under the server. (Ingest once first.)
 
 ---
 
@@ -205,26 +219,29 @@ Reproduce with `python -m eval.run_eval` → full table in [`eval/results.md`](e
 
 | Question type | N | Accuracy (correct) | Incl. partial |
 |---|---|---|---|
-| text-only | 10 | 60% | 70% |
-| multimodal-t (tables) | 21 | 67% | 76% |
-| multimodal-f (figures) | 12 | 83% | 83% |
-| meta-data | 7 | 29% | 57% |
-| **answerable total** | **50** | **64%** | **74%** |
+| text-only | 10 | 70% | 80% |
+| multimodal-t (tables) | 21 | 71% | 81% |
+| multimodal-f (figures) | 12 | 75% | 83% |
+| meta-data | 7 | 71% | 100% |
+| **answerable total** | **50** | **72%** | **84%** |
 
 | Robustness metric | Result |
 |---|---|
-| **Correct abstention on `unanswerable`** | **5/5 (100%)** — no hallucinations |
-| **Multi-document routing** (correct report cited among all 5) | **41/50 (82%)** |
+| **Correct abstention on `unanswerable`** | **5/5 (100%)** — no hallucinations (held even with the vision fallback on) |
+| **Multi-document routing** (correct report cited among all 5) | **44/50 (88%)** |
 
 **Reading the numbers honestly:**
-- **Abstention is perfect (5/5).** The system never fabricated an answer to an unanswerable
-  question — the robustness property that matters most.
-- **Figures score highest (83%)** because a lot of "figure" content (charts with data labels,
-  governance diagrams) is also present as extractable text the layout parser recovers.
-- **Metadata is weakest (29%)** — these are "how many pages does the document have?" and "how many
-  times is X mentioned?" questions that RAG is structurally bad at (see
-  [Limitations](#limitations--future-work)). They drag the answerable average down; the
-  content-bearing categories (text/tables/figures) average meaningfully higher.
+- **Abstention is perfect (5/5)** — the property that matters most — and it stays perfect *with the
+  vision fallback enabled*, i.e. the system reads page images when needed but still refuses to
+  invent answers that aren't there.
+- **Metadata jumped from 29%→71% (C) / 57%→100% (C+P)** after adding a deterministic `document_stats`
+  path (page counts, term frequencies). Those are computations over the whole document, so they're
+  answered by counting, not by RAG guessing.
+- **The reported numbers are a slight *under*-estimate** because the LLM judge is occasionally
+  over-strict on units. Example: for Costco's U.S. revenue the system answered **"$165,294 million"**
+  (correct — the statement is "in millions"), but the gold answer omits the unit ("$165,294") and the
+  judge marked it INCORRECT, reasoning about a non-existent 1000× discrepancy. A handful of
+  "INCORRECT" verdicts are this kind of judge artifact, not retrieval failures.
 
 ---
 
@@ -315,11 +332,14 @@ a human in the loop.
 
 ## Limitations & future work
 
-- **Figure-only answers (`multimodal-f`).** Content that lives *inside* an image (org charts,
-  infographics) isn't captured by text extraction. A vision fallback — render the candidate page
-  and pass it to Claude's vision API — is the natural next step.
-- **Exact-count metadata** ("how many times is X mentioned") isn't something RAG does reliably; a
-  dedicated keyword-count tool would handle it.
+- **Figure-only answers (`multimodal-f`).** Content inside an image isn't captured by text
+  extraction. The **vision fallback** addresses many of these (render page → Claude vision on
+  abstention), but it only triggers when the text path *abstains* — a figure question that retrieves
+  plausible-but-wrong text won't trigger it. Always-on vision per query would help further at higher
+  cost/latency.
+- **LLM-judge unit strictness.** The eval's judge occasionally penalizes correct answers that add a
+  unit the gold omitted (see the Costco U.S.-revenue example above), so reported accuracy is a
+  slight under-estimate.
 - **Scale.** ~800 chunks across 5 docs sit comfortably in memory and a local Chroma store. More
   documents would motivate batched ingestion and a server-backed vector DB — both are drop-in given
   the provider/store abstractions.

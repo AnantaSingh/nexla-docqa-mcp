@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 
 import anthropic
 
@@ -100,34 +102,52 @@ def judge(client, model, q: str, gold: str, sys_ans: str) -> tuple[str, str]:
 def main() -> int:
     settings = get_settings()
     engine = QAEngine(settings)
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key, max_retries=8)
     gold = load_gold()
-    print(f"Evaluating {len(gold)} gold questions...\n")
+    print(f"Evaluating {len(gold)} gold questions (parallel)...\n")
 
-    rows = []
-    for i, g in enumerate(gold, 1):
-        scoped = engine.answer(g.question, document=g.company)
-        unscoped = engine.answer(g.question)
+    progress = {"done": 0}
+    lock = Lock()
+
+    def process(g: GoldItem) -> dict:
         row = {
             "type": g.type,
             "company": g.company,
             "question": g.question,
             "gold": g.answer,
-            "scoped_answer": scoped.answer,
-            "scoped_found": scoped.answer_found,
-            "unscoped_found": unscoped.answer_found,
         }
-        if g.type in ANSWERABLE:
-            verdict, reason = judge(client, settings.judge_model, g.question, g.answer, scoped.answer)
-            row["verdict"] = verdict
-            row["reason"] = reason
-            row["routed"] = any(c.file_name == g.source_file for c in unscoped.citations)
-        else:  # unanswerable
-            row["verdict"] = "ABSTAINED" if not scoped.answer_found else "HALLUCINATED"
+        try:
+            scoped = engine.answer(g.question, document=g.company)
+            unscoped = engine.answer(g.question)
+            row.update(
+                scoped_answer=scoped.answer,
+                scoped_found=scoped.answer_found,
+                unscoped_found=unscoped.answer_found,
+            )
+            if g.type in ANSWERABLE:
+                verdict, reason = judge(client, settings.judge_model, g.question, g.answer, scoped.answer)
+                row["verdict"] = verdict
+                row["reason"] = reason
+                row["routed"] = any(c.file_name == g.source_file for c in unscoped.citations)
+            else:
+                row["verdict"] = "ABSTAINED" if not scoped.answer_found else "HALLUCINATED"
+                row["routed"] = None
+        except Exception as e:  # never let one question crash the whole run
+            row.setdefault("scoped_found", None)
+            row.setdefault("unscoped_found", None)
+            row["verdict"] = "ERROR"
+            row["reason"] = f"{type(e).__name__}: {e}"
             row["routed"] = None
-        rows.append(row)
-        tag = row["verdict"]
-        print(f"[{i:2}/{len(gold)}] {g.type:13} {tag:12} | {g.question[:60]}")
+        with lock:
+            progress["done"] += 1
+            print(f"[{progress['done']:2}/{len(gold)}] {g.type:13} {row['verdict']:12} | {g.question[:55]}",
+                  flush=True)
+        return row
+
+    # Modest concurrency: throughput is bounded by the Anthropic input-token/min rate limit,
+    # not latency, so a few workers + SDK retry/backoff is the sweet spot (more just causes 429s).
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rows = list(pool.map(process, gold))
 
     _write_report(rows)
     return 0

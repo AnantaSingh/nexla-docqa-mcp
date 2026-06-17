@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass
 
 from rank_bm25 import BM25Okapi
@@ -100,6 +101,10 @@ class Retriever:
         self._store = VectorStore(settings)
         self._embedder = embedder or build_embedder(settings)
         self._reranker = None  # lazy: only loaded if reranking is enabled
+        # Serializes retrieval so the shared cross-encoder / BM25 / Chroma handles are safe
+        # under concurrent callers (e.g. the parallel eval harness). Retrieval is fast; the
+        # slow LLM calls outside this lock still run concurrently.
+        self._lock = threading.Lock()
 
     # -- lexical arm -------------------------------------------------------
     def _bm25_hits(self, query: str, k: int, where: dict | None) -> list[tuple[str, float]]:
@@ -152,7 +157,12 @@ class Retriever:
         if not query or not query.strip():
             return []
         top_n = top_n or self.settings.rerank_top_n
+        with self._lock:
+            return self._retrieve_locked(query, top_n, where)
 
+    def _retrieve_locked(
+        self, query: str, top_n: int, where: dict | None
+    ) -> list[RetrievedChunk]:
         qemb = self._embedder.embed_query(query)
         vhits = self._store.query(qemb, self.settings.vector_top_k, where=where)
         vlist = [(h.id, h.score) for h in vhits if h.id in self._by_id]
@@ -163,4 +173,14 @@ class Retriever:
 
         if self.settings.rerank_enabled and candidates:
             candidates = self._rerank(query, candidates)
-        return candidates[:top_n]
+        top = candidates[:top_n]
+
+        # Never drop the single strongest *lexical* match. The cross-encoder sometimes buries a
+        # chunk that literally contains the queried entity/figure (e.g. a geographic segment table
+        # holding "United States ... Total revenue $165,294"). If the BM25 champion fell out of the
+        # top-n, append it so the answer's evidence is in front of the LLM.
+        if blist:
+            champion_id = blist[0][0]
+            if champion_id not in {c.id for c in top} and champion_id in pool:
+                top = top + [pool[champion_id]]
+        return top

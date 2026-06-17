@@ -21,9 +21,11 @@ ONLY the numbered SOURCES provided below. Follow these rules strictly:
 - Use only facts that appear in the SOURCES. Never use outside or prior knowledge.
 - Each SOURCE is labelled and tagged with its company, fiscal year, and page. Respect the \
 company and fiscal year the question asks about — do not mix figures across companies or years.
-- Any number you state must match a SOURCE exactly (including units like millions/billions).
-- If the SOURCES do not clearly contain the answer, you MUST set answer_found=false and say you \
-could not find it in the provided documents. Do not guess, estimate, or extrapolate.
+- Any base figure you cite must match a SOURCE exactly (including units like millions/billions).
+- You MAY compute derived values (differences, sums, ratios, percentage changes) FROM figures that \
+appear in the SOURCES — show the arithmetic briefly. Do not invent base figures to compute from.
+- If the SOURCES do not clearly contain the answer (or the figures needed to compute it), you MUST \
+set answer_found=false and say you could not find it in the provided documents. Do not guess or extrapolate.
 - In used_sources, list the labels (e.g. "S1", "S3") of the SOURCES you actually relied on.
 - Keep the answer concise and factual."""
 
@@ -66,7 +68,9 @@ class ClaudeAnswerLLM:
 
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set. Add it to .env.")
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        # max_retries lets the SDK ride through 429 rate-limit responses (honoring Retry-After)
+        # instead of crashing — important on lower API tiers and under concurrent load.
+        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key, max_retries=8)
         self._model = settings.answer_model
 
     def generate(self, question: str, sources_block: str) -> GroundedAnswer:
@@ -98,3 +102,47 @@ class ClaudeAnswerLLM:
             answer_found=False,
             used_sources=[],
         )
+
+    def generate_from_images(
+        self, question: str, images: list[tuple[str, bytes]]
+    ) -> GroundedAnswer:
+        """Grounded answer from rendered page images (vision fallback for figures/charts).
+
+        Same strict abstain contract as `generate`: answer only from what is visibly in the
+        pages, else answer_found=false. `images` is a list of (label, png_bytes).
+        """
+        import base64
+
+        content: list[dict] = []
+        for label, png in images:
+            content.append({"type": "text", "text": f"SOURCE {label}:"})
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64.standard_b64encode(png).decode(),
+                    },
+                }
+            )
+        content.append({"type": "text", "text": f"QUESTION: {question}"})
+
+        msg = self._client.messages.create(
+            model=self._model,
+            max_tokens=1024,
+            temperature=0,
+            system=_SYSTEM,
+            tools=[_TOOL],
+            tool_choice={"type": "tool", "name": "submit_answer"},
+            messages=[{"role": "user", "content": content}],
+        )
+        for block in msg.content:
+            if block.type == "tool_use" and block.name == "submit_answer":
+                d = block.input
+                return GroundedAnswer(
+                    answer=str(d.get("answer", "")).strip(),
+                    answer_found=bool(d.get("answer_found", False)),
+                    used_sources=[str(s) for s in d.get("used_sources", [])],
+                )
+        return GroundedAnswer("Could not read an answer from the page images.", False, [])

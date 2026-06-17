@@ -6,11 +6,11 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 
 | Type | N | Correct | Partial | Incorrect | Accuracy (C) | C+P |
 |---|---|---|---|---|---|---|
-| text-only | 10 | 6 | 1 | 3 | 60% | 70% |
-| multimodal-t | 21 | 14 | 2 | 5 | 67% | 76% |
-| multimodal-f | 12 | 10 | 0 | 2 | 83% | 83% |
-| meta-data | 7 | 2 | 2 | 3 | 29% | 57% |
-| **answerable total** | 50 | 32 | 5 | 13 | **64%** | **74%** |
+| text-only | 10 | 7 | 1 | 2 | 70% | 80% |
+| multimodal-t | 21 | 15 | 2 | 4 | 71% | 81% |
+| multimodal-f | 12 | 9 | 1 | 2 | 75% | 83% |
+| meta-data | 7 | 5 | 2 | 0 | 71% | 100% |
+| **answerable total** | 50 | 36 | 6 | 8 | **72%** | **84%** |
 
 ## Abstention on unanswerable questions (anti-hallucination)
 
@@ -19,7 +19,7 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 
 ## Multi-document routing (unscoped: correct report cited among all 5)
 
-- Correct source document cited: **41/50** (82%)
+- Correct source document cited: **44/50** (88%)
 
 ## Per-question detail
 
@@ -40,9 +40,9 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | multimodal-t | Accenture | INCORRECT | ✓ | What are the total expected benefit payments for U.S. Pension Plans for the year 2023? |
 | multimodal-t | Accenture | PARTIAL | ✓ | What was the percentage increase in total revenues of the company from fiscal 2019 to fiscal 2020? |
 | multimodal-t | Accenture | CORRECT | ✓ | What was the company's operating income for Europe in 2020? |
-| multimodal-t | Accenture | CORRECT | ✗ | What was the company's operating income for the fiscal year 2018? |
+| multimodal-t | Accenture | CORRECT | ✓ | What was the company's operating income for the fiscal year 2018? |
 | multimodal-f | Accenture | CORRECT | ✓ | Which geographic market of the company contributed the most to the fiscal 2020 revenue for the company? |
-| meta-data | Accenture | INCORRECT | ✗ | How many pages are there in the document? |
+| meta-data | Accenture | CORRECT | ✗ | How many pages are there in the document? |
 | meta-data | Accenture | PARTIAL | ✗ | What is the primary message conveyed on page 11 in the document? |
 | unanswerable | Accenture | ABSTAINED | — | Did IBM's total revenue increase from 2019 to 2020? |
 | text-only | McDonald's | CORRECT | ✓ | How did the occupancy and other operating expenses for company-operated restaurants change over the three years? |
@@ -50,14 +50,14 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | multimodal-t | McDonald's | CORRECT | ✓ | How much did the International Operated Markets contribute to the total franchised revenues in 2019? |
 | multimodal-f | McDonald's | INCORRECT | ✓ | How many company-operated restaurants were there in the U.S. at the end of 2018? |
 | multimodal-t | McDonald's | CORRECT | ✗ | What was the total revenue for the company in 2019? |
-| meta-data | McDonald's | INCORRECT | ✗ | How many pages in total does this report have? |
-| meta-data | McDonald's | INCORRECT | ✓ | How many times does the report mention "franchised margins"? |
+| meta-data | McDonald's | CORRECT | ✗ | How many pages in total does this report have? |
+| meta-data | McDonald's | CORRECT | ✓ | How many times does the report mention "franchised margins"? |
 | unanswerable | McDonald's | ABSTAINED | — | How many stores does the company open in Shanghai? |
 | text-only | Philip | INCORRECT | ✓ | On which page does the report provide Mine Safety Disclosures? |
-| text-only | Philip | INCORRECT | ✗ | Did PMI have higher net revenues in the European Union in 2020 compared to 2018? |
+| text-only | Philip | CORRECT | ✓ | Did PMI have higher net revenues in the European Union in 2020 compared to 2018? |
 | multimodal-t | Philip | PARTIAL | ✓ | How much of the change in PMI's Net Revenues was attributable to currency effects? |
 | multimodal-t | Philip | CORRECT | ✓ | What was PMI's net revenue from combustible products in the European Union for 2020? |
-| multimodal-t | Philip | INCORRECT | ✗ | What was the shipment volume of Marlboro cigarettes in 2020 according to PMI's report? |
+| multimodal-t | Philip | CORRECT | ✓ | What was the shipment volume of Marlboro cigarettes in 2020 according to PMI's report? |
 | multimodal-t | Philip | CORRECT | ✓ | Which brand in PMI experienced the highest percentage increase in shipment volume from 2019 to 2020? |
 | multimodal-t | Philip | CORRECT | ✓ | What was PMI's net revenue for the European Union in 2020? |
 | multimodal-t | Philip | CORRECT | ✓ | What was the total provision for PMI's income taxes in 2020? |
@@ -72,7 +72,7 @@ Total gold questions: **55**. Judge: Claude (LLM-as-judge), temperature 0.
 | multimodal-t | Toyota | CORRECT | ✓ | What is the percentage of shares held by the largest shareholder listed in the report? |
 | multimodal-t | Toyota | CORRECT | ✓ | What is the total number of common shares held by the top three shareholders combined for Toyota Motor Corporation? |
 | multimodal-f | Toyota | CORRECT | ✓ | What is the primary goal of the Fleet Management System of Toyota? |
-| multimodal-f | Toyota | CORRECT | ✓ | How does the Fleet Management System of Toyota respond when there is an increase in waiting customers? |
+| multimodal-f | Toyota | PARTIAL | ✓ | How does the Fleet Management System of Toyota respond when there is an increase in waiting customers? |
 | multimodal-f | Toyota | INCORRECT | ✓ | What is the difference in the rate of the engine being off during driving between HEVs and PHEVs? |
 | multimodal-f | Toyota | CORRECT | ✓ | What is the largest category of shareholders shown in the company's ownership breakdown? |
 | multimodal-f | Toyota | CORRECT | ✓ | What is the role of the Board of Directors in Toyota's Corporate Governance structure? |
