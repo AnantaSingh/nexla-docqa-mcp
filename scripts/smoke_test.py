@@ -58,10 +58,11 @@ async def main() -> int:
             print(f"[abstain] {ok(not r3['answer_found'])} -> answer_found={r3['answer_found']}")
             failures += r3["answer_found"]
 
-            r4 = (await s.call_tool("query_documents",
-                  {"question": "revenue?", "document": "Tesla"})).structuredContent
-            cond = (not r4["answer_found"]) and "No indexed document" in r4["answer"]
-            print(f"[bad-filter] {ok(cond)} -> {r4['answer'][:60]}")
+            # unknown document is a usage error -> surfaces as an MCP tool error (isError)
+            r4 = await s.call_tool("query_documents", {"question": "revenue?", "document": "Tesla"})
+            msg = r4.content[0].text if r4.content else ""
+            cond = r4.isError and "No indexed document" in msg
+            print(f"[bad-filter] {ok(cond)} -> isError={r4.isError} {msg[-60:]!r}")
             failures += not cond
 
     print("\nRESULT:", "ALL PASSED" if failures == 0 else f"{failures} CHECK(S) FAILED")

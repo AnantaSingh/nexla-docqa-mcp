@@ -164,7 +164,9 @@ class QAEngine:
             )
         return out
 
-    def _vision_fallback(self, question: str, chunks: list[RetrievedChunk]) -> QAResult | None:
+    def _vision_fallback(
+        self, question: str, chunks: list[RetrievedChunk], document: str | None
+    ) -> QAResult | None:
         """Retry an abstained question by sending the top retrieved pages to Claude vision.
 
         Only runs when explicitly enabled. Keeps the strict abstain contract, so genuinely
@@ -205,13 +207,17 @@ class QAEngine:
         if not result.answer_found:
             return None
 
+        # cite the page(s) the vision model said it used; if it named none, cite the pages we
+        # actually showed it (faithful — never hardcode P1).
+        used = [lbl.strip() for lbl in result.used_sources if lbl.strip() in page_meta]
+        cited_labels = used or list(page_meta.keys())
         citations = [
-            Citation("P1", m["company"], m["ticker"], m["year"], m["file_name"],
+            Citation(lbl, m["company"], m["ticker"], m["year"], m["file_name"],
                      m["page"], m.get("section", ""), "figure(vision)", "(read from page image)")
-            for m in (page_meta.get("P1"),) if m
+            for lbl in cited_labels for m in [page_meta[lbl]]
         ]
         return QAResult(question, result.answer, True, citations,
-                        retrieved_count=len(images), document_filter=None)
+                        retrieved_count=len(images), document_filter=document)
 
     def answer(
         self, question: str, top_k: int | None = None, document: str | None = None
@@ -243,17 +249,21 @@ class QAEngine:
         result = self.llm.generate(question, sources_block)
 
         if not result.answer_found and self.settings.vision_fallback_enabled:
-            vision = self._vision_fallback(question, chunks)
+            vision = self._vision_fallback(question, chunks, document)
             if vision is not None:
                 return vision
 
         citations = (
             self._citations(result.used_sources, label_map) if result.answer_found else []
         )
-        # If the model answered but cited nothing valid, attach the top source for provenance.
+        # If the model answered but cited nothing valid, only attach a fallback citation when the
+        # retrieved context came from a SINGLE document — then the top source can't point at the
+        # wrong doc. With multiple docs in scope we leave citations empty rather than risk a
+        # wrong-doc attribution (keeps the "never fabricated" contract in the docstring honest).
         if result.answer_found and not citations:
-            top_label = next(iter(label_map))
-            citations = self._citations([top_label], label_map)
+            docs = {c.metadata["file_name"] for c in label_map.values()}
+            if len(docs) == 1:
+                citations = self._citations([next(iter(label_map))], label_map)
 
         return QAResult(
             question=question,

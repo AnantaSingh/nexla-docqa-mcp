@@ -54,7 +54,11 @@ def query_documents(
           - citations: list of {company, year, page, section, chunk_type, snippet, file_name}
           - retrieved_count: how many passages were considered
           - document_filter: the scope applied, if any
+
+    Invalid inputs (unknown `document`, bad types) surface as MCP tool errors (isError) with a
+    descriptive message — the single error contract shared by all tools here.
     """
+    resolve_document_filter(document)  # raise ValueError -> isError on an unknown document
     result = get_engine().answer(question, top_k=top_k, document=document)
     return result.to_dict()
 
@@ -89,12 +93,11 @@ def search_chunks(query: str, top_k: int = 10, document: str | None = None) -> l
         query: Search query.
         top_k: Number of hits to return (default 10). Named to match query_documents.
         document: Optional ticker/company/file scope, same as query_documents.
+
+    An unknown `document` surfaces as an MCP tool error (isError), like the other tools.
     """
     retriever = get_engine().retriever
-    try:
-        where = resolve_document_filter(document)
-    except ValueError as e:
-        return [{"error": str(e)}]
+    where = resolve_document_filter(document)  # raise ValueError -> isError on unknown document
     hits = retriever.retrieve(query, top_n=top_k, where=where)
     return [
         {
@@ -126,15 +129,14 @@ def document_stats(document: str, term: str | None = None) -> dict[str, Any]:
     Returns:
         { company, ticker, year, file_name, page_count, word_count,
           term?, term_count?, term_pages? }
+
+    An unknown/empty `document` surfaces as an MCP tool error (isError), like the other tools.
     """
     from .doc_store import DocStore
 
-    try:
-        where = resolve_document_filter(document)
-    except ValueError as e:
-        return {"error": str(e)}
+    where = resolve_document_filter(document)  # raise ValueError -> isError on unknown document
     if where is None:
-        return {"error": "Specify a document (ticker, company, or file name)."}
+        raise ValueError("Specify a document (ticker, company, or file name).")
     store = DocStore(get_settings())
     s = store.stats(where["file_name"], term=term)
     out = {

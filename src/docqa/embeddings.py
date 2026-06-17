@@ -19,8 +19,6 @@ _BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
 
 class Embedder(Protocol):
-    dim: int
-
     def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
     def embed_query(self, text: str) -> list[float]: ...
 
@@ -38,7 +36,6 @@ class OpenAIEmbedder:
         self._client = OpenAI(api_key=settings.openai_api_key)
         self._model = settings.embed_model
         self._batch = batch_size
-        self.dim = 1536  # text-embedding-3-small
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
         out: list[list[float]] = []
@@ -65,7 +62,6 @@ class FastEmbedEmbedder:
             model_name=settings.local_embed_model,
             cache_dir=str(settings.fastembed_cache_path),
         )
-        self.dim = 384  # bge-small-en-v1.5
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [v.tolist() for v in self._model.embed(texts)]

@@ -34,9 +34,11 @@ Requirements: Python 3.11+, an **OpenAI API key** (embeddings) and an **Anthropi
 (answer synthesis).
 
 ```bash
-# 1. Install (uv recommended; plain venv + pip also works)
+# 1. Install (venv + pip)
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"          # or:  uv pip install -e ".[dev]"
+pip install -e ".[dev]"                              # convenient (latest compatible deps)
+# …or for a byte-for-byte reproducible environment, use the committed lockfile:
+# pip install -r requirements.txt && pip install -e . --no-deps
 
 # 2. Configure secrets
 cp .env.example .env             # then paste your two keys into .env
@@ -129,12 +131,17 @@ The core tool. Returns a grounded answer with source citations.
 | Field | Type | Notes |
 |---|---|---|
 | `question` | string (required) | Natural-language question. |
-| `top_k` | int (default 8) | Passages used to ground the answer (clamped to ≥1). |
+| `top_k` | int (default 8) | Reranked passages to ground on (clamped to ≥1). This is a **floor**: if the top BM25 "lexical champion" was reranked out, it's appended, so up to `top_k + 1` passages may be used. |
 | `document` | string (optional) | Scope to one report by ticker (`COST`), company (`Costco`), or file. |
 
 **Returns:** `{ answer, answer_found, citations[], retrieved_count, document_filter }`, where each
 citation is `{ label, company, ticker, year, file_name, page, section, chunk_type, snippet }`.
 `answer_found=false` means the documents didn't support an answer (no guessing).
+
+**Error contract (all tools):** invalid inputs — an unknown `document`, or a wrong argument type —
+surface as standard **MCP tool errors** (`isError: true`) with a descriptive message
+(e.g. `"No indexed document matches 'Tesla'. Known: TM, COST, MCD, ACN, PM."`). `answer_found=false`
+is **not** an error — it's a valid "the documents don't support an answer" result.
 
 **Example queries:**
 - `query_documents(question="What was Costco's total revenue in fiscal 2022?")`
@@ -247,7 +254,10 @@ actual PDFs** (see the vibe-coding section for the bug this caught):
    Table-dense pages are kept **atomic** (never split mid-table).
 6. **Year & company disambiguation.** Every chunk and citation carries company + fiscal year; the
    prompt is told to respect the year/company asked (reports span 2020–2022).
-7. **Determinism.** Temperature 0, fixed embedding model, persisted index → reproducible answers.
+7. **Determinism (qualified).** Temperature 0, a fixed embedding model, and a persisted index make
+   **retrieval deterministic**; answer *text* is near-deterministic but not guaranteed identical
+   (LLMs retain minor nondeterminism even at temp 0 — the eval shows small run-to-run wobble, see
+   [Evaluation](#evaluation)).
 8. **Graceful failure.** Empty question, no hits, unknown `document` filter, or a missing index
    all return clear messages instead of crashing.
 
