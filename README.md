@@ -149,12 +149,12 @@ Lets an agent discover what it can ask about. **No inputs.**
 **Example query:** `list_documents()`
 → `[{ "company": "Costco Wholesale Corporation", "ticker": "COST", "year": 2022, "pages": 76, "num_chunks": 117 }, … ]`
 
-### `search_chunks(query, k=10, document=None)`
+### `search_chunks(query, top_k=10, document=None)`
 Raw hybrid-retrieval hits (no LLM) with `rerank/vector/bm25` scores and snippets — for
 transparency and debugging retrieval independently of synthesis. Inputs: `query` (required),
-`k` (default 10), optional `document` scope.
+`top_k` (default 10), optional `document` scope.
 
-**Example query:** `search_chunks(query="warehouses operated worldwide", document="COST", k=5)`
+**Example query:** `search_chunks(query="warehouses operated worldwide", document="COST", top_k=5)`
 → `[{ "id": "COST-p45-0", "page": 45, "chunk_type": "text", "rerank_score": 5.9, "snippet": "…" }, … ]`
 
 ### `document_stats(document, term=None)`

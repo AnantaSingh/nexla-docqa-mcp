@@ -82,12 +82,12 @@ def list_documents() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-def search_chunks(query: str, k: int = 10, document: str | None = None) -> list[dict[str, Any]]:
+def search_chunks(query: str, top_k: int = 10, document: str | None = None) -> list[dict[str, Any]]:
     """Return raw hybrid-retrieval hits (no LLM synthesis) for transparency/debugging.
 
     Args:
         query: Search query.
-        k: Number of hits to return (default 10).
+        top_k: Number of hits to return (default 10). Named to match query_documents.
         document: Optional ticker/company/file scope, same as query_documents.
     """
     retriever = get_engine().retriever
@@ -95,7 +95,7 @@ def search_chunks(query: str, k: int = 10, document: str | None = None) -> list[
         where = resolve_document_filter(document)
     except ValueError as e:
         return [{"error": str(e)}]
-    hits = retriever.retrieve(query, top_n=k, where=where)
+    hits = retriever.retrieve(query, top_n=top_k, where=where)
     return [
         {
             "id": h.id,
